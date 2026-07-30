@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OKR Repossession — Operational Target Overview</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead"><div class="stripe"></div>
+    <h1>🎯 OPERATIONAL TARGET &amp; OKR OVERVIEW</h1>
+    <p>Data dimuat langsung dari file di folder <code style="color:#fff;background:rgba(255,255,255,.15);">/data</code> pada repo ini</p>
+  </div>
+
+  <div class="nav">
+    <a href="index.html" class="active">🏍️ Repossession OKR</a>
+    <a href="insurance.html">📋 Insurance OKR</a>
+  </div>
+
+  <div class="section-title">🏍️🚗 1. REPOSSESSION OKR</div>
+
+  <div class="toolbar">
+    <h3>📅 Filter Periode</h3>
+    <div class="filters">
+      <div class="filter-item">
+        <label>Dari Tanggal</label>
+        <input type="date" id="fStart">
+      </div>
+      <div class="filter-item">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="fEnd">
+      </div>
+      <button class="btn" id="applyBtn">Terapkan</button>
+      <button class="btn secondary" id="resetBtn">Reset ke Semua Data</button>
+    </div>
+    <div class="load-status" id="loadStatus">Memuat data...</div>
+    <div class="data-note">
+      Target harian ditetapkan tetap sesuai kesepakatan OKR. <b>Target periode</b> = target/hari × jumlah hari pada periode terpilih.
+      <b>Aktual</b> dijumlahkan dari <code>data/repossession_daily.csv</code> — file ini <u>tidak</u> berasal dari PDF Insurance Activity
+      (PDF tersebut hanya berisi data klaim asuransi, bukan data repossession), sehingga aktual harian bike/car perlu diisi oleh tim
+      Operasional lalu di-commit ke repo agar dashboard ini otomatis ter-update.
+    </div>
+  </div>
+
+  <div class="section-title" style="background:linear-gradient(90deg,var(--bike),#1a7549);">🏍️ MOTOR (BIKE)</div>
+  <div class="groups" id="bikeGroup"></div>
+
+  <div class="section-title" style="background:linear-gradient(90deg,var(--car),#175a86);">🚗 MOBIL (CAR)</div>
+  <div class="groups" id="carGroup"></div>
+
+  <div class="chartsec">
+    <h3>📊 Achievement per Kategori Repossession (%)</h3>
+    <div class="chart-grid">
+      <div><canvas id="chartBike"></canvas></div>
+      <div><canvas id="chartCar"></canvas></div>
+    </div>
+  </div>
+
+  <div class="bottom-note">
+    <b>Kategori:</b> DW–DW, DW–PKWT, PKWT–PKWT menunjukkan kombinasi status petugas penarik (repo agent) yang menyerahkan
+    dan menerima unit. <b>Status:</b> ✅ On Target (≥100%) &nbsp; ⚠️ Below Target (80–99%) &nbsp; ❌ Not Achieved (&lt;80%).
+  </div>
+
+  <footer>OKR Repossession Dashboard — data otomatis mengikuti isi <code>data/repossession_daily.csv</code> di repo GitHub ini.</footer>
+</div>
+
+<script src="assets/app.js"></script>
+<script src="assets/repossession.js"></script>
+</body>
+</html>
