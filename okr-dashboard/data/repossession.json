@@ -1,0 +1,8 @@
+[
+  {"id":"repo1","icon":"🏍️","label":"DW - DW Bike","target":5,"actual":0,"weight":17,"unit":"UNIT/HARI","direction":"higher"},
+  {"id":"repo2","icon":"🏍️","label":"DW - PKWT Bike","target":6,"actual":0,"weight":17,"unit":"UNIT/HARI","direction":"higher"},
+  {"id":"repo3","icon":"🏍️","label":"PKWT - PKWT Bike","target":7,"actual":0,"weight":17,"unit":"UNIT/HARI","direction":"higher"},
+  {"id":"repo4","icon":"🚗","label":"DW - DW Car","target":7,"actual":0,"weight":16,"unit":"UNIT/HARI","direction":"higher"},
+  {"id":"repo5","icon":"🚗","label":"DW - PKWT Car","target":8,"actual":0,"weight":16,"unit":"UNIT/HARI","direction":"higher"},
+  {"id":"repo6","icon":"🚗","label":"PKWT - PKWT Car","target":9,"actual":0,"weight":17,"unit":"UNIT/HARI","direction":"higher"}
+]

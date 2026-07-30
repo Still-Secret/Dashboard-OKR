@@ -1,0 +1,7 @@
+[
+  {"id":"ins1","icon":"📋","label":"Reported to Insurer","target":95,"actual":95,"weight":30,"unit":"% OF TOTAL WO","direction":"higher"},
+  {"id":"ins2","icon":"📄","label":"SPK Issued","target":85,"actual":79.70,"weight":20,"unit":"% OF TOTAL WO","direction":"higher"},
+  {"id":"ins3","icon":"🧾","label":"Invoiced","target":60,"actual":39.30,"weight":10,"unit":"% OF TOTAL WO","direction":"higher"},
+  {"id":"ins4","icon":"💰","label":"Paid or Disbursed","target":30,"actual":16.00,"weight":10,"unit":"% OF TOTAL WO","direction":"higher"},
+  {"id":"ins5","icon":"🔄","label":"Renewed","target":100,"actual":0,"weight":30,"unit":"%","direction":"higher"}
+]

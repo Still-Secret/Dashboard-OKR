@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insurance OKR — Detail per Partner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead"><div class="stripe"></div><h1>📋 INSURANCE OKR — DETAIL PER PARTNER</h1></div>
+
+  <div class="topnav">
+    <a href="index.html">🎯 Dashboard Utama</a>
+    <a href="insurance-detail.html" class="active">📋 Insurance Detail per Partner</a>
+  </div>
+
+  <div class="section-title">
+    🔎 FILTER DATA
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>Tanggal / Periode</label>
+        <select id="dateSelect"></select>
+      </div>
+      <div class="filter-group" style="flex:1;min-width:280px;">
+        <label>Kategori Partner</label>
+        <div class="chip-group" id="categoryChips"></div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn secondary" id="selectAllBtn">Pilih Semua</button>
+        <button class="btn secondary" id="clearAllBtn">Kosongkan</button>
+      </div>
+    </div>
+    <div class="hint" id="filterSummary"></div>
+  </div>
+
+  <div class="section-title">📋 INSURANCE OKR PER KATEGORI</div>
+
+  <div class="groups" id="groupsWrap"></div>
+
+  <div class="chartsec">
+    <h3>📊 Perbandingan Weighted Achievement antar Kategori (periode terpilih)</h3>
+    <div class="chart-grid" style="grid-template-columns:1fr;">
+      <div><canvas id="chart-compare" style="max-height:320px;"></canvas></div>
+    </div>
+  </div>
+
+  <div class="source-note">
+    📡 <b>Sumber data:</b> halaman ini memuat data dari <code>data/insurance_detail.json</code> di repository ini — satu baris data untuk tiap kombinasi <b>tanggal + kategori partner + Key Result</b>.
+    Untuk menambah periode baru atau memperbarui angka, tambahkan/edit baris pada file JSON tersebut di GitHub lalu commit &amp; push. Halaman ini otomatis membaca ulang data setiap kali dibuka/direfresh — tidak perlu ubah kode HTML.
+    <br>Format tiap baris: <code>{"date":"2026-07-01","category":"GRAB_OONA","kr_id":"ins1","label":"Reported to Insurer","icon":"📋","target":95,"actual":93.5,"weight":30,"unit":"% OF TOTAL WO","direction":"higher"}</code>
+  </div>
+
+  <footer>Insurance Detail Dashboard — data dimuat otomatis dari GitHub (folder /data).</footer>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+let charts = {};
+let rawRows = [];
+let selectedDate = null;
+let selectedCategories = new Set(INSURANCE_CATEGORIES.map(c => c.id));
+let currentGroups = [];
+
+const SEED_DETAIL_FALLBACK = []; // diisi runtime kalau fetch gagal & tak ada cadangan lain
+
+async function loadAll() {
+  rawRows = await fetchJSON('data/insurance_detail.json', SEED_DETAIL_FALLBACK);
+
+  const dates = [...new Set(rawRows.map(r => r.date))].sort().reverse();
+  const dateSelect = document.getElementById('dateSelect');
+  dateSelect.innerHTML = dates.map(d => `<option value="${d}">${fmtTanggal(d)}</option>`).join('');
+  selectedDate = dates[0] || null;
+  dateSelect.value = selectedDate;
+  dateSelect.addEventListener('change', () => {
+    selectedDate = dateSelect.value;
+    render();
+  });
+
+  renderCategoryChips();
+  render();
+}
+
+function renderCategoryChips() {
+  const wrap = document.getElementById('categoryChips');
+  wrap.innerHTML = '';
+  INSURANCE_CATEGORIES.forEach(cat => {
+    const chip = document.createElement('div');
+    const active = selectedCategories.has(cat.id);
+    chip.className = 'chip' + (active ? ' active' : '');
+    chip.style.background = active ? cat.color : '#fff';
+    chip.style.borderColor = active ? cat.color : '';
+    chip.textContent = cat.label;
+    chip.addEventListener('click', () => {
+      if (selectedCategories.has(cat.id)) selectedCategories.delete(cat.id);
+      else selectedCategories.add(cat.id);
+      renderCategoryChips();
+      render();
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+  selectedCategories = new Set(INSURANCE_CATEGORIES.map(c => c.id));
+  renderCategoryChips();
+  render();
+});
+document.getElementById('clearAllBtn').addEventListener('click', () => {
+  selectedCategories = new Set();
+  renderCategoryChips();
+  render();
+});
+
+function getActiveGroups() {
+  return INSURANCE_CATEGORIES
+    .filter(cat => selectedCategories.has(cat.id))
+    .map(cat => {
+      const krs = rawRows
+        .filter(r => r.date === selectedDate && r.category === cat.id)
+        .sort((a, b) => a.kr_id.localeCompare(b.kr_id))
+        .map(r => ({ ...r, id: cat.id + '_' + r.kr_id }));
+      return { id: cat.id, title: cat.label, color: cat.color, krs };
+    });
+}
+
+function render() {
+  const summary = document.getElementById('filterSummary');
+  summary.textContent = `Menampilkan ${selectedCategories.size} dari ${INSURANCE_CATEGORIES.length} kategori, periode ${selectedDate ? fmtTanggal(selectedDate) : '-'}.`;
+
+  const groups = getActiveGroups();
+  currentGroups = groups;
+  const wrap = document.getElementById('groupsWrap');
+  wrap.innerHTML = '';
+
+  if (!groups.length) {
+    wrap.innerHTML = '<div class="info-card">Pilih minimal satu kategori partner untuk menampilkan data.</div>';
+  }
+
+  groups.forEach(group => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const total = weightedTotal(group.krs);
+    card.innerHTML = `
+      <div class="card-head" style="background:${group.color}">
+        <div class="ic">📋</div>
+        <div class="ttl">${escapeHtml(group.title)}</div>
+        <div class="ring-total"><canvas id="ringtotal-${group.id}"></canvas><div class="val">${Math.round(total)}%</div></div>
+      </div>
+      <div class="kr-table" id="krtable-${group.id}"></div>
+    `;
+    wrap.appendChild(card);
+
+    const table = card.querySelector('#krtable-' + group.id);
+    const head = document.createElement('div');
+    head.className = 'kr-row';
+    head.style.fontSize = '9.5px';
+    head.style.color = 'var(--sub)';
+    head.style.fontWeight = '800';
+    head.style.textTransform = 'uppercase';
+    head.style.borderBottom = '2px solid var(--line)';
+    head.innerHTML = `<div></div><div>Key Result</div><div style="text-align:center;">Target</div><div style="text-align:center;">Aktual</div><div style="text-align:center;">Weight</div><div style="text-align:center;">Achievement</div><div></div>`;
+    table.appendChild(head);
+
+    if (!group.krs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.style.padding = '10px 8px';
+      empty.textContent = 'Tidak ada data untuk periode ini.';
+      table.appendChild(empty);
+    }
+
+    group.krs.forEach((kr, idx) => {
+      const ach = calcAchievement(kr);
+      const st = statusFor(ach);
+      const row = document.createElement('div');
+      row.className = 'kr-row';
+      row.innerHTML = `
+        <div class="kr-num" style="background:${group.color}">${idx + 1}</div>
+        <div class="kr-label">
+          <span class="kr-icon">${kr.icon || '📋'}</span>
+          <span class="kr-name">${escapeHtml(kr.label)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.target}" data-f="target">
+          <span class="unit">${escapeHtml(kr.unit)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.actual}" data-f="actual">
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.weight}" data-f="weight">
+        </div>
+        <div class="achv-col">
+          <div class="ring-wrap"><canvas id="ring-${kr.id}"></canvas><div class="val" style="color:${st.color}">${fmtPct(ach)}</div></div>
+          <div class="achv-lbl" style="color:${st.color}">${st.label}</div>
+        </div>
+        <div class="status-badge">${st.icon}</div>
+      `;
+      table.appendChild(row);
+
+      row.querySelectorAll('[data-f]').forEach(el => {
+        const field = el.dataset.f;
+        el.addEventListener('input', () => {
+          kr[field] = parseFloat(el.value);
+          liveUpdateRow(group, kr, row);
+        });
+      });
+    });
+  });
+
+  groups.forEach(group => {
+    renderRingTotal(charts, 'ringtotal-' + group.id, weightedTotal(group.krs));
+    group.krs.forEach(kr => renderRing(charts, 'ring-' + kr.id, calcAchievement(kr)));
+  });
+  renderCompareChart(groups);
+}
+
+function liveUpdateRow(group, kr, rowEl) {
+  const ach = calcAchievement(kr);
+  const st = statusFor(ach);
+  const valEl = rowEl.querySelector('.ring-wrap .val');
+  valEl.textContent = fmtPct(ach);
+  valEl.style.color = st.color;
+  const lblEl = rowEl.querySelector('.achv-lbl');
+  lblEl.textContent = st.label;
+  lblEl.style.color = st.color;
+  rowEl.querySelector('.status-badge').textContent = st.icon;
+  renderRing(charts, 'ring-' + kr.id, ach);
+  renderRingTotal(charts, 'ringtotal-' + group.id, weightedTotal(group.krs));
+  renderCompareChart(currentGroups);
+}
+
+function renderCompareChart(groups) {
+  const labels = groups.map(g => g.title);
+  const data = groups.map(g => Math.round(weightedTotal(g.krs) * 100) / 100);
+  const colors = groups.map(g => g.color);
+  renderBarChart(charts, 'chart-compare', labels, data, colors, 'Weighted Achievement per Kategori — ' + (selectedDate ? fmtTanggal(selectedDate) : ''));
+}
+
+loadAll();
+</script>
+</body>
+</html>
