@@ -1,5 +1,0 @@
-[
-  {"id":"era1","icon":"🏠","label":"Resolution Time Storing","target":1,"actual":1,"weight":30,"unit":"HOUR","direction":"lower"},
-  {"id":"era2","icon":"🛵","label":"Completion Time Towing (Delivery)","target":1.5,"actual":2,"weight":40,"unit":"HOUR","direction":"lower"},
-  {"id":"era3","icon":"🛵","label":"Completion Time Towing","target":1.5,"actual":2.5,"weight":30,"unit":"HOUR","direction":"lower"}
-]
