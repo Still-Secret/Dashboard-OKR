@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operational Target & OKR Overview</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#eef1f6; --panel:#ffffff; --ink:#111c2e; --sub:#63708a; --line:#e3e8f0;
+    --navy:#0c1f4a; --navy2:#173a7a;
+    --era:#1f8f57; --era-soft:#e6f6ee;
+    --ins:#5b3aa8; --ins-soft:#f1ecfb;
+    --repo:#c0451f; --repo-soft:#fbe9e2;
+    --ok:#1f9d55; --warn:#e0a020; --bad:#e0433a;
+    --ok-soft:#e6f6ec; --warn-soft:#fdf3e0; --bad-soft:#fdeceb;
+    --radius:16px; --shadow:0 1px 3px rgba(15,25,45,.06), 0 10px 26px -14px rgba(15,25,45,.18);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',Inter,system-ui,-apple-system,Arial,sans-serif;padding:12px;}
+  @media(min-width: 768px){ body{padding:20px;} }
+
+  .wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+
+  .masthead{background:linear-gradient(120deg,var(--navy),var(--navy2));border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+  .masthead h1{margin:0;color:#fff;font-size:20px;letter-spacing:.4px;text-align:center;}
+  @media(min-width: 768px){ .masthead h1{font-size:24px;} }
+  .masthead .stripe{position:absolute;top:0;right:0;bottom:0;width:120px;background:repeating-linear-gradient(115deg,#22c6e0 0 10px,transparent 10px 22px);opacity:.5;}
+
+  .section-title{background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;border-radius:12px;padding:12px 20px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);justify-content:space-between;}
+
+  .toolbar{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px;}
+  .toolbar summary{cursor:pointer;font-weight:700;font-size:13.5px;}
+  .toolbar-body{margin-top:12px;display:flex;flex-direction:column;gap:10px;}
+  .hint{font-size:12px;color:var(--sub);line-height:1.6;}
+  .hint code{background:#f2f4f8;padding:1px 5px;border-radius:4px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .row textarea{flex:1;min-width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:monospace;resize:vertical;}
+  .row input[type=text], .row input[type=date]{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--ink);}
+  .btn{border:none;border-radius:8px;padding:8px 15px;font-size:12.5px;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;}
+  .btn.secondary{background:#f0f2f6;color:var(--ink);border:1px solid var(--line);}
+  .btn:hover{opacity:.9;}
+  .status{font-size:11.5px;color:var(--ok);opacity:0;transition:opacity .3s;}
+  .status.show{opacity:1;}
+
+  .date-filter-group{display:flex;align-items:center;gap:8px;background:#f8fafc;padding:6px 12px;border-radius:10px;border:1px solid var(--line);}
+  .date-filter-group label{font-size:12px;font-weight:700;color:var(--sub);}
+
+  .groups{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:1100px){.groups{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));}}
+
+  .card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
+  .card-head{padding:14px 18px;display:flex;align-items:center;gap:12px;color:#fff;}
+  .card-head.era{background:var(--era);}
+  .card-head.ins{background:var(--ins);}
+  .card-head.repo{background:var(--repo);}
+  .card-head .ic{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+  .card-head .ttl{font-weight:800;font-size:15px;flex:1;}
+  .ring-total{width:48px;height:48px;position:relative;flex-shrink:0;}
+  .ring-total canvas{width:100%!important;height:100%!important;}
+  .ring-total .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;}
+
+  .kr-table{padding:6px 10px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .kr-row{display:grid;grid-template-columns:30px minmax(130px, 1fr) 75px 75px 60px 75px 25px;gap:6px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);min-width:480px;}
+  .kr-row:last-child{border-bottom:none;}
+  .kr-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;}
+  .kr-num.era{background:var(--era);}
+  .kr-num.ins{background:var(--ins);}
+  .kr-num.repo{background:var(--repo);}
+  .kr-label{display:flex;flex-direction:column;gap:2px;}
+  .kr-icon{font-size:14px;}
+  .kr-name{font-weight:700;font-size:11.5px;outline:none;border-radius:5px;padding:2px 4px;}
+  .kr-name:focus{background:#fafbfd;}
+  .kr-field{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .kr-field input{width:100%;text-align:center;border:1px solid var(--line);border-radius:6px;padding:4px 2px;font-size:11.5px;font-weight:700;}
+  .kr-field .unit{font-size:8.5px;color:var(--sub);text-align:center;outline:none;}
+  .ring-wrap{width:48px;height:48px;position:relative;}
+  .ring-wrap canvas{width:100%!important;height:100%!important;}
+  .ring-wrap .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;}
+  .status-badge{font-size:14px;text-align:center;}
+
+  .achv-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .achv-lbl{font-size:8px;color:var(--sub);text-align:center;line-height:1.2;text-transform:uppercase;font-weight:700;}
+
+  .bottom{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:980px){.bottom{grid-template-columns:1fr 1fr;}}
+  .info-card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;}
+  .info-card h3{margin:0 0 12px 0;font-size:14px;display:flex;align-items:center;gap:8px;}
+  .std-row{display:flex;gap:18px;flex-wrap:wrap;}
+  .std-item{flex:1;min-width:170px;}
+  .std-item .lbl{font-weight:700;font-size:12.5px;margin-bottom:4px;}
+  .std-item .desc{font-size:11.5px;color:var(--sub);line-height:1.5;outline:none;border-radius:6px;padding:3px 4px;}
+  .std-item .desc:focus{background:#fafbfd;}
+  .std-badge{display:inline-block;background:#eef2f8;border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:800;margin-top:6px;outline:none;}
+  .std-badge:focus{background:#fff;}
+  .catatan-list{font-size:12px;line-height:1.9;outline:none;border-radius:6px;padding:4px 6px;}
+  .catatan-list:focus{background:#fafbfd;}
+
+  .chartsec{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;}
+  .chartsec h3{margin:0 0 10px 0;font-size:14px;}
+  .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+  .chart-grid canvas{max-height:230px;}
+
+  footer{text-align:center;font-size:11px;color:var(--sub);padding:6px 0 16px;}
+
+  .page-nav{display:flex;gap:8px;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px;overflow-x:auto;}
+  .nav-btn{flex:1;min-width:140px;text-align:center;padding:11px 14px;border-radius:10px;border:none;background:transparent;color:var(--sub);font-weight:800;font-size:12.5px;cursor:pointer;transition:background .2s,color .2s;}
+  .nav-btn:hover{background:#f2f4f8;}
+  .nav-btn.active{background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;}
+  .page{display:none;flex-direction:column;gap:16px;}
+  .page.active{display:flex;}
+
+  .ins-tag{font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;letter-spacing:.3px;}
+  .tag-grab{background:#0c8bd6;color:#fff;}
+  .tag-nongrab{background:#e08a1f;color:#fff;}
+
+  .filter-block{display:flex;flex-direction:column;gap:10px;}
+  .filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .filter-label{font-weight:800;font-size:12px;color:var(--ink);min-width:100px;text-transform:uppercase;letter-spacing:.3px;}
+  .ins-cat-chip{display:flex;align-items:center;gap:6px;background:#f1ecfb;border:1px solid #ddd0f5;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--ins);user-select:none;}
+  .ins-cat-chip input{cursor:pointer;accent-color:var(--ins);}
+  .ins-cat-chip.tag-is-grab{background:#e6f2fb;border-color:#bfe0f7;color:#0c6ba8;}
+  .ins-cat-chip.tag-is-nongrab{background:#fdf1e2;border-color:#f6dcae;color:#a3630e;}
+  .chip-actions{display:flex;gap:8px;}
+  .chip-actions button{border:none;background:#f0f2f6;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);}
+  .chip-actions button:hover{background:#e6e9ef;}
+  
+  .date-badge{font-size:11px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:6px;font-weight:normal;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead"><div class="stripe"></div><h1>🎯 OPERATIONAL TARGET &amp; OKR OVERVIEW</h1></div>
+
+  <div class="page-nav">
+    <button class="nav-btn active" id="navPage1">📊 Dashboard Utama</button>
+    <button class="nav-btn" id="navPage2">📋 Insurance Detail — GRAB &amp; NON GRAB</button>
+  </div>
+
+  <!-- PAGE 1 -->
+  <div id="page1" class="page active">
+
+  <div class="section-title">
+    <span>🎯 OKR OVERVIEW</span>
+    <span class="date-badge" id="p1DateBadge">Semua Tanggal</span>
+  </div>
+
+  <div class="toolbar" style="display:block;">
+    <div class="row">
+      <!-- Filter Tanggal Halaman 1 -->
+      <div class="date-filter-group">
+        <label>📅 Periode:</label>
+        <input type="date" id="p1StartDate">
+        <label>s/d</label>
+        <input type="date" id="p1EndDate">
+        <button class="btn" id="p1ApplyDateBtn">Terapkan Filter</button>
+        <button class="btn secondary" id="p1ResetDateBtn">Reset</button>
+      </div>
+      
+      <button class="btn secondary" id="fetchExternalBtn">🔄 Sync Data External (data.json)</button>
+      <span class="status" id="p1Status"></span>
+    </div>
+  </div>
+
+  <details class="toolbar" id="importPanel">
+    <summary>⚙️ Input Data Aktual Manual / Import (CSV/Paste)</summary>
+    <div class="toolbar-body">
+      <div class="hint">
+        Kolom <b>Aktual</b> pada tiap Key Result bisa diisi langsung di tabel di bawah, atau di-import massal dari sheet dengan format 2 kolom: <code>Key Result</code>, <code>Aktual</code>.
+      </div>
+      <div class="row">
+        <input type="file" id="csvFile" accept=".csv,.tsv,.txt">
+        <span class="status" id="importStatus"></span>
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;">
+        <textarea id="pasteArea" rows="3" placeholder="Key Result	Aktual&#10;Reported to Insurer	95&#10;SPK Issued	79.70"></textarea>
+        <div class="row">
+          <button class="btn" id="pasteBtn">Proses Data Tempel</button>
+          <button class="btn secondary" id="resetBtn">🔄 Reset ke Standard</button>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div class="groups" id="groupsWrap"></div>
+
+  <div class="chartsec">
+    <h3>📊 Perbandingan Achievement per Key Result</h3>
+    <div class="chart-grid">
+      <div><canvas id="chart-era"></canvas></div>
+      <div><canvas id="chart-insurance"></canvas></div>
+      <div><canvas id="chart-repo"></canvas></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="info-card">
+      <h3>🏠 ERA TIME STANDAR</h3>
+      <div class="std-row" id="eraStandarWrap"></div>
+    </div>
+    <div class="info-card">
+      <h3>ℹ️ CATATAN</h3>
+      <div class="catatan-list" id="catatanBox" contenteditable="true"></div>
+    </div>
+  </div>
+
+  </div><!-- /#page1 -->
+
+  <!-- PAGE 2 -->
+  <div id="page2" class="page">
+
+    <div class="section-title">
+      <span>📋 INSURANCE OKR DETAIL — GRAB &amp; NON GRAB</span>
+      <span class="date-badge" id="p2DateBadge">Semua Tanggal</span>
+    </div>
+
+    <div class="toolbar" style="display:block;">
+      <div class="filter-block">
+        <!-- Filter Tanggal Halaman 2 -->
+        <div class="filter-row">
+          <div class="filter-label">📅 Periode</div>
+          <div class="date-filter-group">
+            <input type="date" id="p2StartDate">
+            <label>s/d</label>
+            <input type="date" id="p2EndDate">
+            <button class="btn" id="p2ApplyDateBtn">Terapkan Filter</button>
+            <button class="btn secondary" id="p2ResetDateBtn">Reset</button>
+          </div>
+        </div>
+
+        <div class="filter-row">
+          <div class="filter-label">🏷️ Kategori</div>
+          <div class="filter-row" id="insCatFilterWrap" style="gap:8px;"></div>
+        </div>
+        <div class="filter-row chip-actions">
+          <button id="insSelectAllBtn">Pilih Semua</button>
+          <button id="insSelectNoneBtn">Batal Semua</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="groups" id="insGroupsWrap"></div>
+
+    <div class="chartsec">
+      <h3>📊 Perbandingan Weighted Achievement per Kategori Insurance</h3>
+      <div class="chart-grid">
+        <div style="grid-column:1/-1;"><canvas id="chart-ins-summary"></canvas></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>ℹ️ Keterangan Kategori</h3>
+      <div style="font-size:12px;color:var(--sub);line-height:1.8;">
+        • <b>GRAB</b>: order berasal dari mitra Grab &nbsp;|&nbsp; <b>NON GRAB</b>: order reguler non-Grab.<br>
+        • Kategori dipecah berdasarkan penyedia asuransi (<b>OONA</b>, <b>AVRIST</b>, <b>SINAR MAS</b>) serta jenis polis <b>ALL RISK</b> untuk armada Grab maupun Non Grab.<br>
+        • Setiap kategori memiliki Key Result yang sama dengan Insurance OKR (Reported to Insurer, SPK Issued, Invoiced, Paid/Disbursed, Renewed) namun dihitung terpisah per kategori.<br>
+        • Gunakan filter Kategori untuk menampilkan/menyembunyikan kartu tertentu.
+      </div>
+    </div>
+
+  </div><!-- /#page2 -->
+
+  <footer>OKR Dashboard — perubahan tersimpan otomatis saat Anda mengetik (autosave, tidak perlu klik simpan).</footer>
+</div>
+
+<script>
+const AppStorage = {
+  async get(key) {
+    if (window.storage && typeof window.storage.get === 'function') {
+      try { return await window.storage.get(key, true); } catch(e){}
+    }
+    const val = localStorage.getItem(key);
+    return val ? { value: val } : null;
+  },
+  async set(key, value) {
+    if (window.storage && typeof window.storage.set === 'function') {
+      try { return await window.storage.set(key, value, true); } catch(e){}
+    }
+    localStorage.setItem(key, value);
+  }
+};
+
+const KEY_P1_GROUPS = 'okr:p1_groups_v3';
+const KEY_NOTES = 'okr:notes';
+const KEY_DATE_FILTER = 'okr:date_filter';
+let charts = {};
+let saveTimer = null;
+
+// Global Filter Tanggal State
+let globalDateFilter = { startDate: '', endDate: '' };
+
+const SEED_GROUPS = [
+  { id:'era', title:'1. ERA OKR', icon:'🛡️', cls:'era', krs:[
+    {id:'era1', icon:'🏠', label:'Resolution Time Storing', target:1, actual:1, weight:30, unit:'HOUR', direction:'lower'},
+    {id:'era2', icon:'🛵', label:'Completion Time Towing (Delivery)', target:1.5, actual:2, weight:40, unit:'HOUR', direction:'lower'},
+    {id:'era3', icon:'🛵', label:'Completion Time Towing', target:1.5, actual:2.5, weight:30, unit:'HOUR', direction:'lower'},
+  ]},
+  { id:'insurance', title:'2. Insurance OKR', icon:'📋', cls:'ins', krs:[
+    {id:'ins1', icon:'📋', label:'Reported to Insurer', target:95, actual:95, weight:30, unit:'% OF TOTAL WO', direction:'higher'},
+    {id:'ins2', icon:'📄', label:'SPK Issued', target:85, actual:79.70, weight:20, unit:'% OF TOTAL WO', direction:'higher'},
+    {id:'ins3', icon:'🧾', label:'Invoiced', target:60, actual:39.30, weight:10, unit:'% OF TOTAL WO', direction:'higher'},
+    {id:'ins4', icon:'💰', label:'Paid or Disbursed', target:30, actual:16.00, weight:10, unit:'% OF TOTAL WO', direction:'higher'},
+    {id:'ins5', icon:'🔄', label:'Renewed', target:100, actual:0, weight:30, unit:'%', direction:'higher'},
+  ]},
+  { id:'repo', title:'3. Repossession OKR', icon:'🚚', cls:'repo', krs:[
+    {id:'repo1', icon:'🏍️', label:'DW - DW Bike', target:5, actual:0, weight:17, unit:'UNIT/HARI', direction:'higher'},
+    {id:'repo2', icon:'🏍️', label:'DW - PKWT Bike', target:6, actual:0, weight:17, unit:'UNIT/HARI', direction:'higher'},
+    {id:'repo3', icon:'🏍️', label:'PKWT - PKWT Bike', target:7, actual:0, weight:17, unit:'UNIT/HARI', direction:'higher'},
+    {id:'repo4', icon:'🚗', label:'DW - DW Car', target:7, actual:0, weight:16, unit:'UNIT/HARI', direction:'higher'},
+    {id:'repo5', icon:'🚗', label:'DW - PKWT Car', target:8, actual:0, weight:16, unit:'UNIT/HARI', direction:'higher'},
+    {id:'repo6', icon:'🚗', label:'PKWT - PKWT Car', target:9, actual:0, weight:17, unit:'UNIT/HARI', direction:'higher'},
+  ]}
+];
+
+const SEED_ERA_STANDAR = [
+  {lbl:'STORING', desc:'Maksimal waktu dari <b>request time</b> sampai tanggal selesai perbaikan', badge:'1 JAM 30 MENIT'},
+  {lbl:'TOWING', desc:'Maksimal waktu dari <b>request time</b> sampai arriving time in pool', badge:'2 JAM'}
+];
+
+const SEED_CATATAN = `• Target dan aktual dihitung berdasarkan total WO pada periode berjalan.<br>
+• Achievement = (Aktual / Target) × 100% — untuk metrik waktu (ERA), arah sebaliknya: (Target / Aktual) × 100%.<br>
+• Status: ✅ On Target (≥100%) &nbsp; ⚠️ Below Target (80% - 99%) &nbsp; ❌ Not Achieved (&lt;80%)`;
+
+let groups = JSON.parse(JSON.stringify(SEED_GROUPS));
+
+async function loadAll(){
+  try{
+    const res = await AppStorage.get(KEY_P1_GROUPS);
+    if(res && res.value){
+      groups = JSON.parse(res.value);
+    }
+  }catch(e){}
+
+  let notes;
+  try{
+    const res2 = await AppStorage.get(KEY_NOTES);
+    notes = res2 && res2.value ? JSON.parse(res2.value) : null;
+  }catch(e){ notes = null; }
+  if(!notes) notes = { eraStandar: SEED_ERA_STANDAR, catatan: SEED_CATATAN };
+  window.__notes = notes;
+
+  // Load Date Filter State
+  try{
+    const resDate = await AppStorage.get(KEY_DATE_FILTER);
+    if(resDate && resDate.value){
+      globalDateFilter = JSON.parse(resDate.value);
+    }
+  }catch(e){}
+
+  syncDateInputsUI();
+  await fetchExternalData(true);
+  render();
+}
+
+// LOGIKA TANGGAL
+function syncDateInputsUI(){
+  document.getElementById('p1StartDate').value = globalDateFilter.startDate || '';
+  document.getElementById('p1EndDate').value = globalDateFilter.endDate || '';
+  document.getElementById('p2StartDate').value = globalDateFilter.startDate || '';
+  document.getElementById('p2EndDate').value = globalDateFilter.endDate || '';
+
+  let text = "Semua Tanggal";
+  if(globalDateFilter.startDate && globalDateFilter.endDate){
+    text = `📅 ${globalDateFilter.startDate} s/d ${globalDateFilter.endDate}`;
+  } else if(globalDateFilter.startDate){
+    text = `📅 Murni ≥ ${globalDateFilter.startDate}`;
+  } else if(globalDateFilter.endDate){
+    text = `📅 Murni ≤ ${globalDateFilter.endDate}`;
+  }
+
+  document.getElementById('p1DateBadge').textContent = text;
+  document.getElementById('p2DateBadge').textContent = text;
+}
+
+async function applyDateFilter(start, end){
+  globalDateFilter.startDate = start;
+  globalDateFilter.endDate = end;
+  try {
+    await AppStorage.set(KEY_DATE_FILTER, JSON.stringify(globalDateFilter));
+  } catch(e){}
+  
+  syncDateInputsUI();
+  
+  // Reload/refresh data sesuai tanggal terfilter
+  await fetchExternalData(false);
+  render();
+  renderInsPage();
+}
+
+document.getElementById('p1ApplyDateBtn').addEventListener('click', ()=>{
+  const s = document.getElementById('p1StartDate').value;
+  const e = document.getElementById('p1EndDate').value;
+  applyDateFilter(s, e);
+});
+
+document.getElementById('p1ResetDateBtn').addEventListener('click', ()=>{
+  applyDateFilter('', '');
+});
+
+document.getElementById('p2ApplyDateBtn').addEventListener('click', ()=>{
+  const s = document.getElementById('p2StartDate').value;
+  const e = document.getElementById('p2EndDate').value;
+  applyDateFilter(s, e);
+});
+
+document.getElementById('p2ResetDateBtn').addEventListener('click', ()=>{
+  applyDateFilter('', '');
+});
+
+function debounceSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    await saveData();
+    await saveNotes();
+    flashStatus();
+  }, 500);
+}
+
+async function saveData(){
+  try{ 
+    await AppStorage.set(KEY_P1_GROUPS, JSON.stringify(groups)); 
+  }catch(e){ console.error(e); }
+}
+
+async function saveNotes(){
+  try{ await AppStorage.set(KEY_NOTES, JSON.stringify(window.__notes)); }catch(e){ console.error(e); }
+}
+
+function flashStatus(msg = '✅ Tersimpan otomatis', isOk = true){
+  const el = document.getElementById('p1Status');
+  el.textContent = msg;
+  el.style.color = isOk ? 'var(--ok)' : 'var(--bad)';
+  el.classList.add('show');
+  setTimeout(()=> el.classList.remove('show'), 2000);
+}
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden'){ saveData(); saveNotes(); }
+});
+
+function fmtPct(n){
+  if(!isFinite(n)) return '0%';
+  const r = Math.round(n*100)/100;
+  return (Number.isInteger(r) ? r : r.toFixed(2)) + '%';
+}
+
+function calcAchievement(kr){
+  const t = parseFloat(kr.target), a = parseFloat(kr.actual);
+  if(!isFinite(t) || t === 0 || !isFinite(a)) return 0;
+  return kr.direction === 'lower' ? (t / a) * 100 : (a / t) * 100;
+}
+
+function statusFor(ach){
+  if(ach >= 100) return {icon:'✅', color:'var(--ok)', soft:'var(--ok-soft)', label:'ON TARGET'};
+  if(ach >= 80) return {icon:'⚠️', color:'var(--warn)', soft:'var(--warn-soft)', label:'BELOW TARGET'};
+  return {icon:'❌', color:'var(--bad)', soft:'var(--bad-soft)', label: ach<=0 ? 'NOT ACHIEVED' : 'BELOW TARGET'};
+}
+
+function weightedTotal(group){
+  let sum = 0, wsum = 0;
+  group.krs.forEach(kr=>{
+    const ach = calcAchievement(kr);
+    const w = parseFloat(kr.weight) || 0;
+    sum += ach * w / 100;
+    wsum += w;
+  });
+  return wsum ? sum : 0;
+}
+
+function render(){
+  const wrap = document.getElementById('groupsWrap');
+  wrap.innerHTML = '';
+  groups.forEach(group=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    const total = weightedTotal(group);
+    card.innerHTML = `
+      <div class="card-head ${group.cls}">
+        <div class="ic">${group.icon}</div>
+        <div class="ttl">${escapeHtml(group.title)}</div>
+        <div class="ring-total"><canvas id="ringtotal-${group.id}"></canvas><div class="val">${Math.round(total)}%</div></div>
+      </div>
+      <div class="kr-table" id="krtable-${group.id}"></div>
+    `;
+    wrap.appendChild(card);
+
+    const table = card.querySelector('#krtable-'+group.id);
+    const head = document.createElement('div');
+    head.className = 'kr-row';
+    head.style.fontSize = '9px';
+    head.style.color = 'var(--sub)';
+    head.style.fontWeight = '800';
+    head.style.textTransform = 'uppercase';
+    head.style.borderBottom = '2px solid var(--line)';
+    head.innerHTML = `<div></div><div>Key Result</div><div style="text-align:center;">Target</div><div style="text-align:center;">Aktual</div><div style="text-align:center;">Weight</div><div style="text-align:center;">Achv.</div><div></div>`;
+    table.appendChild(head);
+
+    group.krs.forEach((kr, idx)=>{
+      const ach = calcAchievement(kr);
+      const st = statusFor(ach);
+      const row = document.createElement('div');
+      row.className = 'kr-row';
+      row.innerHTML = `
+        <div class="kr-num ${group.cls}">${idx+1}</div>
+        <div class="kr-label">
+          <span class="kr-icon">${kr.icon}</span>
+          <span class="kr-name" contenteditable="true" data-f="label">${escapeHtml(kr.label)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.target}" data-f="target">
+          <span class="unit" contenteditable="true" data-f="unit">${escapeHtml(kr.unit)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.actual}" data-f="actual">
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.weight}" data-f="weight">
+        </div>
+        <div class="achv-col">
+          <div class="ring-wrap"><canvas id="ring-${kr.id}"></canvas><div class="val" style="color:${st.color}">${fmtPct(ach)}</div></div>
+          <div class="achv-lbl" style="color:${st.color}">${st.label}</div>
+        </div>
+        <div class="status-badge">${st.icon}</div>
+      `;
+      table.appendChild(row);
+
+      row.querySelectorAll('[data-f]').forEach(el=>{
+        const field = el.dataset.f;
+        el.addEventListener('input', ()=>{
+          if(field === 'label') kr.label = el.textContent.trim();
+          else if(field === 'unit') kr.unit = el.textContent.trim();
+          else kr[field] = parseFloat(el.value);
+          liveUpdateRow(group, kr, row);
+          debounceSave();
+        });
+      });
+    });
+  });
+
+  groups.forEach(group=>{
+    renderRingTotal(group);
+    group.krs.forEach(kr=> renderRing(kr, calcAchievement(kr)));
+  });
+  renderEraStandar();
+  renderCatatan();
+  renderBarCharts();
+}
+
+function liveUpdateRow(group, kr, rowEl){
+  const ach = calcAchievement(kr);
+  const st = statusFor(ach);
+  const valEl = rowEl.querySelector('.ring-wrap .val');
+  valEl.textContent = fmtPct(ach);
+  valEl.style.color = st.color;
+  const lblEl = rowEl.querySelector('.achv-lbl');
+  lblEl.textContent = st.label;
+  lblEl.style.color = st.color;
+  rowEl.querySelector('.status-badge').textContent = st.icon;
+  renderRing(kr, ach);
+  renderRingTotal(group);
+  renderBarCharts();
+}
+
+function ringColor(ach){
+  if(ach>=100) return getCss('--ok');
+  if(ach>=80) return getCss('--warn');
+  return getCss('--bad');
+}
+function getCss(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function renderRing(kr, ach){
+  const canvas = document.getElementById('ring-'+kr.id);
+  if(!canvas) return;
+  const val = Math.max(0, Math.min(ach, 100));
+  const color = ringColor(ach);
+  if(charts['ring-'+kr.id]) charts['ring-'+kr.id].destroy();
+  charts['ring-'+kr.id] = new Chart(canvas, {
+    type:'doughnut',
+    data:{ datasets:[{ data:[val, 100-val], backgroundColor:[color, '#e7eaf1'], borderWidth:0 }] },
+    options:{ cutout:'72%', rotation:-90, circumference:360, plugins:{legend:{display:false},tooltip:{enabled:false}}, animation:{duration:300} }
+  });
+}
+
+function renderRingTotal(group){
+  const canvas = document.getElementById('ringtotal-'+group.id);
+  if(!canvas) return;
+  const total = Math.max(0, Math.min(weightedTotal(group),100));
+  if(charts['ringtotal-'+group.id]) charts['ringtotal-'+group.id].destroy();
+  charts['ringtotal-'+group.id] = new Chart(canvas, {
+    type:'doughnut',
+    data:{ datasets:[{ data:[total, 100-total], backgroundColor:['#ffffff','rgba(255,255,255,.28)'], borderWidth:0 }] },
+    options:{ cutout:'68%', rotation:-90, circumference:360, plugins:{legend:{display:false},tooltip:{enabled:false}}, animation:{duration:300} }
+  });
+  const valEl = document.querySelector('#ringtotal-'+group.id).parentElement.querySelector('.val');
+  if(valEl) valEl.textContent = Math.round(total)+'%';
+}
+
+function renderBarCharts(){
+  groups.forEach(group=>{
+    const canvasId = 'chart-' + group.id;
+    const canvas = document.getElementById(canvasId);
+    if(!canvas) return;
+    const labels = group.krs.map(k=>k.label);
+    const data = group.krs.map(k=> Math.round(calcAchievement(k)*100)/100);
+    const colors = group.krs.map(k=> ringColor(calcAchievement(k)));
+    if(charts[canvasId]) charts[canvasId].destroy();
+    charts[canvasId] = new Chart(canvas, {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Achievement %', data, backgroundColor:colors, borderRadius:6, maxBarThickness:34 }] },
+      options:{
+        indexAxis:'y',
+        responsive:true, maintainAspectRatio:true,
+        plugins:{ legend:{display:false}, title:{display:true, text:group.title, font:{size:12}} },
+        scales:{ x:{ beginAtZero:true, ticks:{callback:v=>v+'%'} } }
+      }
+    });
+  });
+}
+
+function renderEraStandar(){
+  const wrap = document.getElementById('eraStandarWrap');
+  wrap.innerHTML = '';
+  window.__notes.eraStandar.forEach((item, i)=>{
+    const div = document.createElement('div');
+    div.className = 'std-item';
+    div.innerHTML = `
+      <div class="lbl">${escapeHtml(item.lbl)}</div>
+      <div class="desc" contenteditable="true" data-i="${i}" data-f="desc">${item.desc}</div>
+      <div class="std-badge" contenteditable="true" data-i="${i}" data-f="badge">${escapeHtml(item.badge)}</div>
+    `;
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll('[data-f]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const i = parseInt(el.dataset.i);
+      const f = el.dataset.f;
+      window.__notes.eraStandar[i][f] = f === 'desc' ? el.innerHTML : el.textContent.trim();
+      debounceSave();
+    });
+  });
+}
+
+function renderCatatan(){
+  const box = document.getElementById('catatanBox');
+  box.innerHTML = window.__notes.catatan;
+  box.addEventListener('input', ()=>{
+    window.__notes.catatan = box.innerHTML;
+    debounceSave();
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+async function fetchExternalData(silent = false) {
+  try {
+    let url = './data.json?cachebust=' + Date.now();
+    if(globalDateFilter.startDate) url += '&start=' + globalDateFilter.startDate;
+    if(globalDateFilter.endDate) url += '&end=' + globalDateFilter.endDate;
+
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const json = await res.json();
+    
+    // Filter data berdasarkan tanggal jika ada field 'date'/'tanggal' pada json
+    let p1Data = json ? json.p1Data : null;
+    if (p1Data && Array.isArray(p1Data)) {
+      if(globalDateFilter.startDate || globalDateFilter.endDate) {
+        p1Data = p1Data.filter(row => {
+          const rowDate = row.date || row.tanggal;
+          if(!rowDate) return true; // jika tidak ada properti date, loloskan
+          if(globalDateFilter.startDate && rowDate < globalDateFilter.startDate) return false;
+          if(globalDateFilter.endDate && rowDate > globalDateFilter.endDate) return false;
+          return true;
+        });
+      }
+      applyActualUpdates(p1Data);
+      render();
+      if(!silent) flashStatus('✅ Data ter-sync dari data.json');
+    }
+  } catch(e) {
+    if(!silent) flashStatus('⚠️ Gagal memuat data.json', false);
+  }
+}
+
+document.getElementById('fetchExternalBtn').addEventListener('click', ()=> fetchExternalData(false));
+
+function applyActualUpdates(rows){
+  let matched = 0;
+  rows.forEach(r=>{
+    const krName = (r.kr || r['key result'] || r.KR || '').toString().trim().toLowerCase();
+    const aktualRaw = r.aktual ?? r.Aktual ?? r.actual ?? r.Actual;
+    if(!krName || aktualRaw === undefined) return;
+    const aktual = parseFloat((aktualRaw+'').replace('%','').replace(',','.'));
+    if(isNaN(aktual)) return;
+    groups.forEach(g=>{
+      g.krs.forEach(kr=>{
+        if(kr.label.toLowerCase().includes(krName) || krName.includes(kr.label.toLowerCase())){
+          kr.actual = aktual;
+          matched++;
+        }
+      });
+    });
+  });
+  return matched;
+}
+
+function processCsvText(text){
+  const statusEl = document.getElementById('importStatus');
+  try{
+    const parsed = Papa.parse(text.trim(), {header:true, skipEmptyLines:true});
+    const rows = parsed.data.map(row=>{
+      const norm = {};
+      Object.keys(row).forEach(k=> norm[k.trim().toLowerCase()] = row[k]);
+      return norm;
+    });
+    const matched = applyActualUpdates(rows);
+    statusEl.textContent = matched ? ('✅ '+matched+' Key Result diperbarui.') : '⚠️ Tidak ada Key Result yang cocok namanya.';
+    statusEl.style.color = matched ? 'var(--ok)' : 'var(--bad)';
+    statusEl.classList.add('show');
+    render();
+    debounceSave();
+  }catch(e){
+    statusEl.textContent = '❌ Gagal memproses data: ' + e.message;
+    statusEl.classList.add('show');
+  }
+}
+
+document.getElementById('csvFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => processCsvText(evt.target.result);
+  reader.readAsText(file);
+});
+
+document.getElementById('pasteBtn').addEventListener('click', ()=>{
+  const text = document.getElementById('pasteArea').value;
+  if(!text.trim()) return;
+  processCsvText(text);
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  if(!confirm('Reset Target/Aktual ke standar?')) return;
+  groups = JSON.parse(JSON.stringify(SEED_GROUPS));
+  await saveData();
+  render();
+});
+
+loadAll();
+
+// PAGE NAVIGATION
+function switchPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('navPage1').classList.toggle('active', id==='page1');
+  document.getElementById('navPage2').classList.toggle('active', id==='page2');
+  if(id==='page1'){
+    render();
+  } else {
+    renderInsPage();
+  }
+}
+document.getElementById('navPage1').addEventListener('click', ()=>switchPage('page1'));
+document.getElementById('navPage2').addEventListener('click', ()=>switchPage('page2'));
+
+// INSURANCE DETAIL (PAGE 2)
+const KEY_INS = 'okr:ins_detail_v3';
+let insSaveTimer = null;
+
+const INS_CATEGORIES = [
+  { id:'grab_oona',        title:'GRAB × OONA',           icon:'🚕', tag:'GRAB' },
+  { id:'grab_avrist',      title:'GRAB × AVRIST',         icon:'🚕', tag:'GRAB' },
+  { id:'nongrab_oona',     title:'NON GRAB × OONA',       icon:'🚗', tag:'NON GRAB' },
+  { id:'nongrab_avrist',   title:'NON GRAB × AVRIST',     icon:'🚗', tag:'NON GRAB' },
+  { id:'nongrab_sinarmas', title:'NON GRAB × SINAR MAS',  icon:'🚗', tag:'NON GRAB' },
+  { id:'grab_allrisk',     title:'GRAB × ALL RISK',       icon:'🛡️', tag:'GRAB' },
+  { id:'nongrab_allrisk',  title:'NON GRAB × ALL RISK',   icon:'🛡️', tag:'NON GRAB' },
+];
+
+function defaultInsKrs(prefix){
+  return [
+    { id:prefix+'_k1', icon:'📋', label:'Reported to Insurer',  target:95,  actual:95,    weight:30, unit:'% OF TOTAL WO', direction:'higher' },
+    { id:prefix+'_k2', icon:'📄', label:'SPK Issued',           target:85,  actual:79.70, weight:20, unit:'% OF TOTAL WO', direction:'higher' },
+    { id:prefix+'_k3', icon:'🧾', label:'Invoiced',             target:60,  actual:39.30, weight:10, unit:'% OF TOTAL WO', direction:'higher' },
+    { id:prefix+'_k4', icon:'💰', label:'Paid or Disbursed',    target:30,  actual:16.00, weight:10, unit:'% OF TOTAL WO', direction:'higher' },
+    { id:prefix+'_k5', icon:'🔄', label:'Renewed',              target:100, actual:0,     weight:30, unit:'%',             direction:'higher' },
+  ];
+}
+
+function seedInsData(){
+  const cats = {};
+  INS_CATEGORIES.forEach(c=>{ cats[c.id] = defaultInsKrs(c.id); });
+  return cats;
+}
+
+let insState = { 
+  catsData: seedInsData(), 
+  selectedCats: new Set(INS_CATEGORIES.map(c=>c.id))
+};
+
+async function loadInsAll(){
+  try{
+    const res = await AppStorage.get(KEY_INS);
+    if(res && res.value){
+      insState.catsData = JSON.parse(res.value);
+    } else {
+      await saveInsData();
+    }
+  }catch(e){
+    insState.catsData = seedInsData();
+  }
+  renderInsPage();
+}
+
+async function saveInsData(){
+  try{ await AppStorage.set(KEY_INS, JSON.stringify(insState.catsData)); }catch(e){ console.error(e); }
+}
+
+function debounceInsSave(){
+  clearTimeout(insSaveTimer);
+  insSaveTimer = setTimeout(async ()=>{ await saveInsData(); flashInsStatus(); }, 500);
+}
+
+function flashInsStatus(){
+  const el = document.getElementById('insStatus');
+  if(!el) return;
+  el.textContent = '✅ Tersimpan otomatis';
+  el.classList.add('show');
+  setTimeout(()=> el.classList.remove('show'), 1500);
+}
+
+function renderInsCatFilter(){
+  const wrap = document.getElementById('insCatFilterWrap');
+  wrap.innerHTML = INS_CATEGORIES.map(c=>`
+    <label class="ins-cat-chip ${c.tag==='GRAB'?'tag-is-grab':'tag-is-nongrab'}">
+      <input type="checkbox" data-cat="${c.id}" ${insState.selectedCats.has(c.id)?'checked':''}>
+      <span>${c.icon} ${escapeHtml(c.title)}</span>
+    </label>
+  `).join('');
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id = cb.dataset.cat;
+      if(cb.checked) insState.selectedCats.add(id); else insState.selectedCats.delete(id);
+      renderInsCards();
+      renderInsBarChart();
+    });
+  });
+}
+
+function renderInsCards(){
+  const wrap = document.getElementById('insGroupsWrap');
+  wrap.innerHTML = '';
+
+  INS_CATEGORIES.forEach(cat=>{
+    if(!insState.selectedCats.has(cat.id)) return;
+    if(!insState.catsData[cat.id]) insState.catsData[cat.id] = defaultInsKrs(cat.id);
+    const krs = insState.catsData[cat.id];
+    const pseudoGroup = { id:'ins-'+cat.id, krs, cls:'ins' };
+    const total = weightedTotal(pseudoGroup);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head ins">
+        <div class="ic">${cat.icon}</div>
+        <div class="ttl">${escapeHtml(cat.title)}<span class="ins-tag ${cat.tag==='GRAB'?'tag-grab':'tag-nongrab'}">${cat.tag}</span></div>
+        <div class="ring-total"><canvas id="ringtotal-${pseudoGroup.id}"></canvas><div class="val">${Math.round(total)}%</div></div>
+      </div>
+      <div class="kr-table" id="krtable-${pseudoGroup.id}"></div>
+    `;
+    wrap.appendChild(card);
+
+    const table = card.querySelector('#krtable-'+pseudoGroup.id);
+    const head = document.createElement('div');
+    head.className = 'kr-row';
+    head.style.fontSize = '9px';
+    head.style.color = 'var(--sub)';
+    head.style.fontWeight = '800';
+    head.style.textTransform = 'uppercase';
+    head.style.borderBottom = '2px solid var(--line)';
+    head.innerHTML = `<div></div><div>Key Result</div><div style="text-align:center;">Target</div><div style="text-align:center;">Aktual</div><div style="text-align:center;">Weight</div><div style="text-align:center;">Achv.</div><div></div>`;
+    table.appendChild(head);
+
+    krs.forEach((kr, idx)=>{
+      const ach = calcAchievement(kr);
+      const st = statusFor(ach);
+      const row = document.createElement('div');
+      row.className = 'kr-row';
+      row.innerHTML = `
+        <div class="kr-num ins">${idx+1}</div>
+        <div class="kr-label">
+          <span class="kr-icon">${kr.icon}</span>
+          <span class="kr-name" contenteditable="true" data-f="label">${escapeHtml(kr.label)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.target}" data-f="target">
+          <span class="unit" contenteditable="true" data-f="unit">${escapeHtml(kr.unit)}</span>
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.actual}" data-f="actual">
+        </div>
+        <div class="kr-field">
+          <input type="number" step="any" value="${kr.weight}" data-f="weight">
+        </div>
+        <div class="achv-col">
+          <div class="ring-wrap"><canvas id="ring-${kr.id}"></canvas><div class="val" style="color:${st.color}">${fmtPct(ach)}</div></div>
+          <div class="achv-lbl" style="color:${st.color}">${st.label}</div>
+        </div>
+        <div class="status-badge">${st.icon}</div>
+      `;
+      table.appendChild(row);
+
+      row.querySelectorAll('[data-f]').forEach(el=>{
+        const field = el.dataset.f;
+        el.addEventListener('input', ()=>{
+          if(field === 'label') kr.label = el.textContent.trim();
+          else if(field === 'unit') kr.unit = el.textContent.trim();
+          else kr[field] = parseFloat(el.value);
+          liveUpdateRow(pseudoGroup, kr, row);
+          debounceInsSave();
+        });
+      });
+    });
+  });
+
+  INS_CATEGORIES.forEach(cat=>{
+    if(!insState.selectedCats.has(cat.id)) return;
+    const krs = insState.catsData[cat.id];
+    const pseudoGroup = { id:'ins-'+cat.id, krs, cls:'ins' };
+    renderRingTotal(pseudoGroup);
+    krs.forEach(kr=> renderRing(kr, calcAchievement(kr)));
+  });
+}
+
+function renderInsBarChart(){
+  const canvas = document.getElementById('chart-ins-summary');
+  if(!canvas) return;
+  const cats = INS_CATEGORIES.filter(c=>insState.selectedCats.has(c.id));
+  const labels = cats.map(c=>c.title);
+  const data = cats.map(c=> Math.round(weightedTotal({id:'x', krs:insState.catsData[c.id] || []})*100)/100);
+  const colors = data.map(v=>ringColor(v));
+  if(charts['chart-ins-summary']) charts['chart-ins-summary'].destroy();
+  charts['chart-ins-summary'] = new Chart(canvas, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Weighted Achievement %', data, backgroundColor:colors, borderRadius:6, maxBarThickness:34 }] },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false}, title:{display:true, text:'Weighted Achievement per Kategori', font:{size:12}} },
+      scales:{ x:{ beginAtZero:true, ticks:{callback:v=>v+'%'} } }
+    }
+  });
+}
+
+function renderInsPage(){
+  renderInsCatFilter();
+  renderInsCards();
+  renderInsBarChart();
+}
+
+document.getElementById('insSelectAllBtn').addEventListener('click', ()=>{
+  insState.selectedCats = new Set(INS_CATEGORIES.map(c=>c.id));
+  renderInsCatFilter();
+  renderInsCards();
+  renderInsBarChart();
+});
+document.getElementById('insSelectNoneBtn').addEventListener('click', ()=>{
+  insState.selectedCats = new Set();
+  renderInsCatFilter();
+  renderInsCards();
+  renderInsBarChart();
+});
+
+loadInsAll();
+</script>
+</body>
+</html>
